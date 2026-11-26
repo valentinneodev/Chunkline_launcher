@@ -1,0 +1,28 @@
+	// Chunkline: beim ersten Start die Systemsprache des PCs uebernehmen
+	let startupLocale = locale
+	try {
+		if (!localStorage.getItem('chunkline_locale_initialized')) {
+			const wanted = (
+				navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]
+			).filter(Boolean)
+			const codes = LOCALES.map((l) => l.code)
+			let match
+			for (const lang of wanted) {
+				const base = lang.split('-')[0].toLowerCase()
+				match =
+					codes.find((c) => c.toLowerCase() === lang.toLowerCase()) ??
+					codes.find((c) => c.split('-')[0].toLowerCase() === base)
+				if (match) break
+			}
+			startupLocale = match ?? 'en-US'
+			if (startupLocale !== locale) {
+				await setSettings({ ...(await getSettings()), locale: startupLocale })
+			}
+			localStorage.setItem('chunkline_locale_initialized', '1')
+		}
+	} catch (e) {
+		console.warn('Systemsprache konnte nicht ermittelt werden', e)
+	}
+	if (startupLocale) {
+		await traceStartupStep('Apply startup locale', () => setLocale(startupLocale))
+	}
