@@ -1,0 +1,62 @@
+name: Chunkline Launcher bauen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Quellcode holen (fester Stand)
+        run: |
+          mkdir src && cd src
+          git init -q
+          git remote add origin https://github.com/modrinth/code.git
+          git fetch -q --depth 1 origin 1905abb61a04b06ff0260e1a47e810b482c711b9
+          git checkout -q FETCH_HEAD
+
+      - name: Umbauen
+        run: bash rebrand.sh src
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/.nvmrc
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Rust einrichten
+        run: cd src && rustup show
+
+      - name: Abhängigkeiten installieren
+        run: |
+          corepack enable
+          cd src
+          cp packages/app-lib/.env.prod packages/app-lib/.env
+          pnpm install
+
+      - name: Icons erzeugen
+        run: |
+          cd src
+          pnpm --filter=@modrinth/app exec tauri icon "$GITHUB_WORKSPACE/chunkline-icon.png" -o "$GITHUB_WORKSPACE/src/apps/app/icons"
+
+      - name: Installer bauen
+        run: |
+          cd src
+          pnpm --filter=@modrinth/app run tauri build --bundles nsis
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chunkline-Launcher-Windows
+          path: src/target/release/bundle/nsis/*.exe
